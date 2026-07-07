@@ -136,7 +136,6 @@
       <button class="ghost" id="btnExportar">Exportar copia</button>
       <button class="ghost" id="btnImportar">Importar copia</button>
       <input type="file" id="fileImportar" accept=".json" style="display:none">
-      <button class="primary" id="btnAvanzar">Avanzar al próximo mes →</button>
     </div>
   </header>
 
@@ -216,24 +215,34 @@ let chartA=null, chartB=null, chartC=null;
 async function loadState(){
   try{
     const res = await storageGet(STORE_KEY);
-    if(res && res.value){ state = JSON.parse(res.value); applyEmbeddedReal(); ensureWindow(); await saveState(); return; }
+    if(res && res.value){ state = JSON.parse(res.value); applyEmbeddedReal(); pruneStaleMonths(); ensureWindow(); await saveState(); return; }
   }catch(e){}
-  state = { months:{}, windowStart: monthKeyNow(), selected: null };
+  state = { months:{}, selected: null };
   applyEmbeddedReal();
+  pruneStaleMonths();
   ensureWindow();
   await saveState();
 }
-function applyEmbeddedReal(){
+function computeWindowStart(){
   const embeddedKeys = Object.keys(EMBEDDED_REAL).sort(cmpKey);
-  if(embeddedKeys.length===0) return;
-  embeddedKeys.forEach(key=>{
+  if(embeddedKeys.length===0) return monthKeyNow();
+  return addMonths(embeddedKeys[embeddedKeys.length-1], 1);
+}
+function applyEmbeddedReal(){
+  Object.keys(EMBEDDED_REAL).forEach(key=>{
     state.months[key] = { status:"real", categories: JSON.parse(JSON.stringify(EMBEDDED_REAL[key])) };
   });
-  const lastReal = embeddedKeys[embeddedKeys.length-1];
-  const desiredWindowStart = addMonths(lastReal, 1);
-  if(!state.windowStart || state.windowStart < desiredWindowStart){
-    state.windowStart = desiredWindowStart;
-  }
+}
+function pruneStaleMonths(){
+  // limpia meses proyectados que hayan quedado de una ventana anterior (por ejemplo, de pruebas
+  // en otro dispositivo) y que ya no correspondan a la ventana de 6 meses actual.
+  const winStart = computeWindowStart();
+  const winEnd = addMonths(winStart, 5);
+  Object.keys(state.months).forEach(key=>{
+    const m = state.months[key];
+    if(m.status==="real") return;
+    if(key<winStart || key>winEnd) delete state.months[key];
+  });
 }
 async function saveState(){
   try{ await storageSet(STORE_KEY, JSON.stringify(state)); }
@@ -254,7 +263,7 @@ async function storageSet(key, value){
   return {value};
 }
 
-function windowKeys(){ return [0,1,2,3,4,5].map(i=>addMonths(state.windowStart,i)); }
+function windowKeys(){ const ws=computeWindowStart(); return [0,1,2,3,4,5].map(i=>addMonths(ws,i)); }
 function mostRecentRealBefore(key){
   const keys = Object.keys(state.months).filter(k=> k<key && state.months[k].status==="real").sort(cmpKey);
   return keys.length? state.months[keys[keys.length-1]] : null;
@@ -616,7 +625,7 @@ document.getElementById("segFormato").addEventListener("click",(e)=>{
 
 // ---------------- historico ----------------
 function renderHistorial(){
-  const keys = allKnownKeys().filter(k=>k<state.windowStart);
+  const keys = allKnownKeys().filter(k=>k<computeWindowStart());
   const list = document.getElementById("histList");
   if(keys.length===0){ list.innerHTML = `<p style="color:var(--ink-soft)">Todavía no hay meses previos a la ventana actual.</p>`; return; }
   list.innerHTML = keys.map(k=>{
@@ -645,10 +654,12 @@ document.getElementById("fileImportar").addEventListener("change", async (e)=>{
   try{
     const text = await file.text();
     const data = JSON.parse(text);
-    if(!data || typeof data.months !== "object" || !data.windowStart) throw new Error("El archivo no tiene el formato esperado.");
+    if(!data || typeof data.months !== "object") throw new Error("El archivo no tiene el formato esperado.");
     const ok = confirm("Esto va a reemplazar todos los datos cargados en este dispositivo por los del archivo importado. ¿Continuar?");
     if(!ok) return;
     state = data;
+    applyEmbeddedReal();
+    pruneStaleMonths();
     ensureWindow();
     await saveState();
     showAlert("✓ Copia importada correctamente.", "ok");
@@ -657,18 +668,6 @@ document.getElementById("fileImportar").addEventListener("change", async (e)=>{
     console.error(err);
     showAlert(`✗ No se pudo importar el archivo: ${err.message}`, "");
   }
-});
-
-document.getElementById("btnAvanzar").addEventListener("click", async ()=>{
-  const oldest = state.months[state.windowStart];
-  if(oldest && oldest.status!=="real"){
-    const ok = confirm("El primer mes de la ventana todavía no tiene datos reales cargados.\n¿Avanzar igual?");
-    if(!ok) return;
-  }
-  state.windowStart = addMonths(state.windowStart, 1);
-  ensureWindow();
-  await saveState();
-  renderAll();
 });
 
 // ---------------- init ----------------
