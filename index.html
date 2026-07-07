@@ -201,6 +201,79 @@ const EMBEDDED_REAL = {
   }
 };
 
+// Semilla por defecto para los meses proyectados (julio-diciembre), tomada de las
+// estimaciones originales que armaste. Solo se usa para completar un mes proyectado
+// que esté vacío (recién creado, o en un dispositivo nuevo); si ya lo editaste a mano
+// en algún dispositivo, esa edición no se pisa.
+const EMBEDDED_PROJECTION_SEED = {
+  "2026-07": {
+    "Chengo": 80298150,
+    "Hacienda": 16950356,
+    "Punta del Agua": 197875664,
+    "Alimentacion": -120118255.41,
+    "Honorarios": -26707235.26,
+    "Personal": -26211292.56,
+    "Sanidad": -15567515.29,
+    "Varios/Mantenimiento": -31071036.05,
+    "Impuestos": -1345901.11
+  },
+  "2026-08": {
+    "Chengo": 84313057.5,
+    "Hacienda": 17797873.8,
+    "Punta del Agua": 207769447.2,
+    "Alimentacion": -150147819.26,
+    "Honorarios": -33384044.07,
+    "Personal": -32764115.7,
+    "Sanidad": -19459394.11,
+    "Varios/Mantenimiento": -38838795.06,
+    "Impuestos": -1682376.39
+  },
+  "2026-09": {
+    "Chengo": 88528710.38,
+    "Hacienda": 18687767.49,
+    "Punta del Agua": 218157919.56,
+    "Alimentacion": -210206946.97,
+    "Honorarios": -33717884.52,
+    "Personal": -45869761.98,
+    "Sanidad": -20432363.82,
+    "Varios/Mantenimiento": -40780734.82,
+    "Impuestos": -1699200.15
+  },
+  "2026-10": {
+    "Chengo": 92955145.89,
+    "Hacienda": 19622155.86,
+    "Punta del Agua": 229065815.54,
+    "Alimentacion": -150147819.26,
+    "Honorarios": -35403778.74,
+    "Personal": -48163250.08,
+    "Sanidad": -21453982.01,
+    "Varios/Mantenimiento": -42819771.56,
+    "Impuestos": -1784160.16
+  },
+  "2026-11": {
+    "Chengo": 97602903.19,
+    "Hacienda": 20603263.66,
+    "Punta del Agua": 240519106.31,
+    "Alimentacion": -195192165.04,
+    "Honorarios": -46024912.36,
+    "Personal": -62612225.1,
+    "Sanidad": -27890176.61,
+    "Varios/Mantenimiento": -55665703.02,
+    "Impuestos": -2319408.21
+  },
+  "2026-12": {
+    "Chengo": 102483048.35,
+    "Hacienda": 21633426.84,
+    "Punta del Agua": 252545061.63,
+    "Alimentacion": -195192165.04,
+    "Honorarios": -46024912.36,
+    "Personal": -48163250.08,
+    "Sanidad": -27890176.61,
+    "Varios/Mantenimiento": -42819771.56,
+    "Impuestos": -2319408.21
+  }
+};
+
 function monthKeyNow(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
 function addMonths(key,n){ let [y,m]=key.split("-").map(Number); m+=n; y+=Math.floor((m-1)/12); m=((m-1)%12+12)%12+1; return y+"-"+String(m).padStart(2,"0"); }
 function labelFor(key){ const [y,m]=key.split("-").map(Number); return MESES[m-1]+" "+y; }
@@ -268,13 +341,18 @@ function mostRecentRealBefore(key){
   const keys = Object.keys(state.months).filter(k=> k<key && state.months[k].status==="real").sort(cmpKey);
   return keys.length? state.months[keys[keys.length-1]] : null;
 }
+function seedCategoriesFor(key){
+  if(EMBEDDED_PROJECTION_SEED[key]) return JSON.parse(JSON.stringify(EMBEDDED_PROJECTION_SEED[key]));
+  const base = mostRecentRealBefore(key) || Object.values(state.months).find(m=>Object.keys(m.categories).length>0);
+  return base? JSON.parse(JSON.stringify(base.categories)) : {};
+}
 function ensureWindow(){
   windowKeys().forEach(key=>{
-    const base = mostRecentRealBefore(key) || Object.values(state.months).find(m=>Object.keys(m.categories).length>0);
     if(!state.months[key]){
-      state.months[key] = { status:"proyectado", categories: base? JSON.parse(JSON.stringify(base.categories)) : {} };
-    } else if(state.months[key].status==="proyectado" && Object.keys(state.months[key].categories).length===0 && base){
-      state.months[key].categories = JSON.parse(JSON.stringify(base.categories));
+      state.months[key] = { status:"proyectado", categories: seedCategoriesFor(key), auto:true };
+    } else if(state.months[key].status==="proyectado" && state.months[key].auto!==false){
+      state.months[key].categories = seedCategoriesFor(key);
+      state.months[key].auto = true;
     }
   });
 }
@@ -480,6 +558,7 @@ function renderTable(keys){
     inp.addEventListener("input", (e)=>{
       const k = e.target.dataset.k, cat = e.target.dataset.cat;
       state.months[k].categories[cat] = e.target.value===""?0:Number(e.target.value);
+      if(state.months[k].status==="proyectado") state.months[k].auto = false;
       saveState();
     });
   });
