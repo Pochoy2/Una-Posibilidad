@@ -117,6 +117,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   tr.idx-row td{font-style:italic;color:var(--ink-soft);font-size:11.8px;}
   input.cell-input{width:110px;font-family:'IBM Plex Mono',monospace;font-size:12px;text-align:right;border:1px solid var(--line);border-radius:5px;padding:3px 6px;background:#FCFBF8;color:var(--ink);}
   input.cell-input:focus{outline:2px solid var(--pine);}
+  input.cell-input-real{background:#F1EFE6;border-color:var(--leather);}
 
   .indicadores{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:6px;}
   .indicador-card{background:#FCFBF8;border:1px solid var(--line);border-radius:8px;padding:14px;}
@@ -221,7 +222,7 @@ let chartA=null, chartB=null, chartC=null;
 
 async function loadState(){
   try{
-    const res = await window.storage.get(STORE_KEY, false);
+    const res = await storageGet(STORE_KEY);
     if(res && res.value){ state = JSON.parse(res.value); ensureWindow(); return; }
   }catch(e){}
   state = { months:{}, windowStart: monthKeyNow(), selected: null };
@@ -229,8 +230,22 @@ async function loadState(){
   await saveState();
 }
 async function saveState(){
-  try{ await window.storage.set(STORE_KEY, JSON.stringify(state), false); }
+  try{ await storageSet(STORE_KEY, JSON.stringify(state)); }
   catch(e){ console.error("No se pudo guardar", e); }
+}
+async function storageGet(key){
+  if(window.storage && typeof window.storage.get === "function"){
+    try{ const r = await window.storage.get(key, false); if(r) return r; }catch(e){}
+  }
+  const v = localStorage.getItem(key);
+  return v!==null ? {value:v} : null;
+}
+async function storageSet(key, value){
+  if(window.storage && typeof window.storage.set === "function"){
+    try{ const r = await window.storage.set(key, value, false); if(r) return r; }catch(e){}
+  }
+  localStorage.setItem(key, value);
+  return {value};
 }
 
 function windowKeys(){ return [0,1,2,3,4,5].map(i=>addMonths(state.windowStart,i)); }
@@ -392,11 +407,9 @@ function renderTable(keys){
     keys.forEach(k=>{
       const m = state.months[k];
       const val = m.categories[cat]!==undefined ? m.categories[cat] : 0;
-      if(m.status==="proyectado"){
-        html += `<td><input class="cell-input" type="number" step="any" data-k="${k}" data-cat="${cat.replace(/"/g,'&quot;')}" value="${val}"></td>`;
-      } else {
-        html += `<td>$ ${fmt(val)}</td>`;
-      }
+      const cls = m.status==="real" ? "cell-input cell-input-real" : "cell-input";
+      const title = m.status==="real" ? "Corrección manual sobre el dato real" : "Proyección editable";
+      html += `<td><input class="${cls}" type="number" step="any" data-k="${k}" data-cat="${cat.replace(/"/g,'&quot;')}" value="${val}" title="${title}"></td>`;
     });
     html += `</tr>`;
   }
@@ -474,14 +487,20 @@ function renderCharts(keys){
 
   if(chartA) chartA.destroy();
   const ctxA = document.getElementById("chartA").getContext('2d');
+  const egresosReales = keys.map(k=>monthTotals(state.months[k]).egresos);
   chartA = new Chart(ctxA, {
     data:{ labels, datasets:[
       {type:'bar', label:'Ingresos', data:keys.map(k=>monthTotals(state.months[k]).ingresos), backgroundColor:'#4C7A4FCC', borderRadius:4},
-      {type:'bar', label:'Egresos', data:keys.map(k=>monthTotals(state.months[k]).egresos), backgroundColor:'#AD6B2ECC', borderRadius:4},
+      {type:'bar', label:'Egresos', data:egresosReales.map(v=>Math.abs(v)), backgroundColor:'#AE4430CC', borderRadius:4},
       {type:'line', label:'Resultado', data:keys.map(k=>monthTotals(state.months[k]).resultado), borderColor:'#28402F', backgroundColor:'#28402F', tension:.3, pointRadius:4, borderWidth:2.5}
     ]},
     options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{labels:{font:{family:'IBM Plex Sans'}}}},
+      plugins:{legend:{labels:{font:{family:'IBM Plex Sans'}}}, tooltip:{callbacks:{
+        label:(ctx)=>{
+          if(ctx.dataset.label==='Egresos'){ return 'Egresos: $'+fmt(-Math.abs(ctx.raw)); }
+          return ctx.dataset.label+': $'+fmt(ctx.raw);
+        }
+      }}},
       scales:{ x:{grid:{display:false}}, y:{ticks:{callback:v=>'$'+fmt(v)}} } }
   });
 
@@ -508,7 +527,17 @@ function renderCharts(keys){
     type:'bar',
     data:{ labels, datasets: datasetsC },
     options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom', labels:{font:{family:'IBM Plex Sans'}, boxWidth:12}}},
+      plugins:{legend:{position:'bottom', labels:{font:{family:'IBM Plex Sans'}, boxWidth:12}},
+        tooltip:{callbacks:{
+          label:(ctx)=>{
+            const k = keys[ctx.dataIndex];
+            const totalEg = Math.abs(monthTotals(state.months[k]).egresos);
+            const val = ctx.raw;
+            const p = totalEg>0 ? (val/totalEg*100) : 0;
+            return `${ctx.dataset.label}: $${fmt(val)} (${p.toFixed(1)}%)`;
+          }
+        }}
+      },
       scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, ticks:{callback:v=>'$'+fmt(v)}} } }
   });
 }
