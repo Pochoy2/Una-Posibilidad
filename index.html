@@ -270,9 +270,11 @@ function mostRecentRealBefore(key){
 }
 function ensureWindow(){
   windowKeys().forEach(key=>{
+    const base = mostRecentRealBefore(key) || Object.values(state.months).find(m=>Object.keys(m.categories).length>0);
     if(!state.months[key]){
-      const base = mostRecentRealBefore(key) || Object.values(state.months)[0];
       state.months[key] = { status:"proyectado", categories: base? JSON.parse(JSON.stringify(base.categories)) : {} };
+    } else if(state.months[key].status==="proyectado" && Object.keys(state.months[key].categories).length===0 && base){
+      state.months[key].categories = JSON.parse(JSON.stringify(base.categories));
     }
   });
 }
