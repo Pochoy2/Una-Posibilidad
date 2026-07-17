@@ -185,92 +185,143 @@ const STORE_KEY = "cashflow-una-posibilidad-v1";
 
 // Datos reales embebidos por Claude a partir del Excel que le mandás por chat.
 // Cada vez que cerrás un mes, mandale el Excel a Claude y te devuelve este archivo
-// con un mes nuevo agregado acá abajo. Esto es lo que hace que se vea igual en
-// cualquier dispositivo: no depende de lo que tengas guardado en el navegador.
-const EMBEDDED_REAL = {
-  "2026-06": {
-    "Chengo": 80298150,
-    "Hacienda": 16950356,
-    "Punta del Agua": 197875664,
-    "Alimentacion": -120118255.41,
-    "Honorarios": -26707235.26,
-    "Personal": -26211292.56,
-    "Sanidad": -15567515.29,
-    "Varios/Mantenimiento": -31071036.05,
-    "Impuestos": -1345901.11
-  }
-};
+// con un mes nuevo agregado acá abajo (formato: categoria -> monto, ingresos en
+// positivo, egresos en negativo). Vacío por ahora: todavía no hay ningún mes cerrado
+// con este formato de cuentas nuevo.
+const EMBEDDED_REAL = {};
 
-// Semilla por defecto para los meses proyectados (julio-diciembre), tomada de las
-// estimaciones originales que armaste. Solo se usa para completar un mes proyectado
-// que esté vacío (recién creado, o en un dispositivo nuevo); si ya lo editaste a mano
-// en algún dispositivo, esa edición no se pisa.
+// Saldo de caja real al inicio del primer mes de la ventana (antes de julio 2026).
+const OPENING_BALANCE = 60000000;
+
+// Semilla de proyección: valores del "Flujo de Caja" que armaste, julio 2026 a
+// enero 2027 (7 meses), todos como punto de partida editable. Solo se usa para
+// completar un mes proyectado que esté vacío o que no hayas tocado a mano.
 const EMBEDDED_PROJECTION_SEED = {
   "2026-07": {
-    "Chengo": 80298150,
-    "Hacienda": 16950356,
-    "Punta del Agua": 197875664,
-    "Alimentacion": -120118255.41,
-    "Honorarios": -26707235.26,
-    "Personal": -26211292.56,
-    "Sanidad": -15567515.29,
-    "Varios/Mantenimiento": -31071036.05,
-    "Impuestos": -1345901.11
+    "Venta de leche - Punta del Agua": 75965551.2,
+    "Venta de leche - Molfino": 0,
+    "Venta de leche - Chengo": 82925000.0,
+    "Venta de vacas de descarte": 11200000.0,
+    "Servicio de picado": 0,
+    "Ajuste manual": -16090551.0,
+    "Sueldos": 0,
+    "Honorarios": 0,
+    "Impuestos": 0,
+    "Alimentación": 0,
+    "Veterinaria": 0,
+    "Varios/Mantenimiento": 0,
+    "Banco/Préstamos": 0,
+    "Proveedores": -59987366.55,
+    "Sanidad": 0,
+    "Maquinarias": 0
   },
   "2026-08": {
-    "Chengo": 84313057.5,
-    "Hacienda": 17797873.8,
-    "Punta del Agua": 207769447.2,
-    "Alimentacion": -150147819.26,
-    "Honorarios": -33384044.07,
-    "Personal": -32764115.7,
-    "Sanidad": -19459394.11,
+    "Venta de leche - Punta del Agua": 243616768.5,
+    "Venta de leche - Molfino": 0,
+    "Venta de leche - Chengo": 82925000.0,
+    "Venta de vacas de descarte": 11200000.0,
+    "Servicio de picado": 0,
+    "Ajuste manual": 0,
+    "Sueldos": -32764115.7,
+    "Honorarios": -33384044.08,
+    "Impuestos": -1682376.39,
+    "Alimentación": -150147819.26,
+    "Veterinaria": 0,
     "Varios/Mantenimiento": -38838795.06,
-    "Impuestos": -1682376.39
+    "Banco/Préstamos": 0,
+    "Proveedores": -74803539.9,
+    "Sanidad": -19459394.11,
+    "Maquinarias": 0
   },
   "2026-09": {
-    "Chengo": 88528710.38,
-    "Hacienda": 18687767.49,
-    "Punta del Agua": 218157919.56,
-    "Alimentacion": -210206946.97,
+    "Venta de leche - Punta del Agua": 258531893.0,
+    "Venta de leche - Molfino": 0,
+    "Venta de leche - Chengo": 80250000.0,
+    "Venta de vacas de descarte": 11600000.0,
+    "Servicio de picado": 0,
+    "Ajuste manual": 0,
+    "Sueldos": -33900000.0,
     "Honorarios": -33717884.52,
-    "Personal": -45869761.98,
-    "Sanidad": -20432363.82,
+    "Impuestos": -1699200.15,
+    "Alimentación": -150147819.26,
+    "Veterinaria": 0,
     "Varios/Mantenimiento": -40780734.82,
-    "Impuestos": -1699200.15
+    "Banco/Préstamos": 0,
+    "Proveedores": -137672921.1,
+    "Sanidad": -20432363.82,
+    "Maquinarias": 0
   },
   "2026-10": {
-    "Chengo": 92955145.89,
-    "Hacienda": 19622155.86,
-    "Punta del Agua": 229065815.54,
-    "Alimentacion": -150147819.26,
+    "Venta de leche - Punta del Agua": 299790281.0,
+    "Venta de leche - Molfino": 0,
+    "Venta de leche - Chengo": 82925000.0,
+    "Venta de vacas de descarte": 11600000.0,
+    "Servicio de picado": 0,
+    "Ajuste manual": 0,
+    "Sueldos": -36000000.0,
     "Honorarios": -35403778.74,
-    "Personal": -48163250.08,
-    "Sanidad": -21453982.01,
+    "Impuestos": -1784160.16,
+    "Alimentación": -150147819.26,
+    "Veterinaria": 0,
     "Varios/Mantenimiento": -42819771.56,
-    "Impuestos": -1784160.16
+    "Banco/Préstamos": 0,
+    "Proveedores": -69600000.0,
+    "Sanidad": -21453982.01,
+    "Maquinarias": 0
   },
   "2026-11": {
-    "Chengo": 97602903.19,
-    "Hacienda": 20603263.66,
-    "Punta del Agua": 240519106.31,
-    "Alimentacion": -195192165.04,
-    "Honorarios": -46024912.36,
-    "Personal": -62612225.1,
-    "Sanidad": -27890176.61,
+    "Venta de leche - Punta del Agua": 318105864.0,
+    "Venta de leche - Molfino": 0,
+    "Venta de leche - Chengo": 80250000.0,
+    "Venta de vacas de descarte": 11800000.0,
+    "Servicio de picado": 0,
+    "Ajuste manual": 0,
+    "Sueldos": -36900000.0,
+    "Honorarios": -36000000.0,
+    "Impuestos": -2319408.21,
+    "Alimentación": -195192165.04,
+    "Veterinaria": 0,
     "Varios/Mantenimiento": -55665703.02,
-    "Impuestos": -2319408.21
+    "Banco/Préstamos": 0,
+    "Proveedores": -72000000.0,
+    "Sanidad": -27890176.61,
+    "Maquinarias": 0
   },
   "2026-12": {
-    "Chengo": 102483048.35,
-    "Hacienda": 21633426.84,
-    "Punta del Agua": 252545061.63,
-    "Alimentacion": -195192165.04,
-    "Honorarios": -46024912.36,
-    "Personal": -48163250.08,
-    "Sanidad": -27890176.61,
+    "Venta de leche - Punta del Agua": 293229220.0,
+    "Venta de leche - Molfino": 0,
+    "Venta de leche - Chengo": 82925000.0,
+    "Venta de vacas de descarte": 11800000.0,
+    "Servicio de picado": 0,
+    "Ajuste manual": 0,
+    "Sueldos": -39300000.0,
+    "Honorarios": -39000000.0,
+    "Impuestos": -2319408.21,
+    "Alimentación": -195192165.04,
+    "Veterinaria": 0,
     "Varios/Mantenimiento": -42819771.56,
-    "Impuestos": -2319408.21
+    "Banco/Préstamos": 0,
+    "Proveedores": -73050000.0,
+    "Sanidad": -27890176.61,
+    "Maquinarias": 0
+  },
+  "2027-01": {
+    "Venta de leche - Punta del Agua": 316923942.0,
+    "Venta de leche - Molfino": 0,
+    "Venta de leche - Chengo": 82925000.0,
+    "Venta de vacas de descarte": 11800000.0,
+    "Servicio de picado": 0,
+    "Ajuste manual": 0,
+    "Sueldos": 0,
+    "Honorarios": 0,
+    "Impuestos": 0,
+    "Alimentación": 0,
+    "Veterinaria": 0,
+    "Varios/Mantenimiento": 0,
+    "Banco/Préstamos": 0,
+    "Proveedores": 0,
+    "Sanidad": 0,
+    "Maquinarias": 0
   }
 };
 
@@ -308,12 +359,17 @@ function applyEmbeddedReal(){
 }
 function pruneStaleMonths(){
   // limpia meses proyectados que hayan quedado de una ventana anterior (por ejemplo, de pruebas
-  // en otro dispositivo) y que ya no correspondan a la ventana de 6 meses actual.
+  // en otro dispositivo) y que ya no correspondan a la ventana actual, y también meses "real"
+  // que hayan quedado guardados de una versión anterior pero que Claude ya sacó de EMBEDDED_REAL
+  // (por ejemplo, por un cambio de formato de cuentas).
   const winStart = computeWindowStart();
-  const winEnd = addMonths(winStart, 5);
+  const winEnd = addMonths(winStart, WINDOW_SIZE-1);
   Object.keys(state.months).forEach(key=>{
     const m = state.months[key];
-    if(m.status==="real") return;
+    if(m.status==="real"){
+      if(!EMBEDDED_REAL[key]) delete state.months[key];
+      return;
+    }
     if(key<winStart || key>winEnd) delete state.months[key];
   });
 }
@@ -336,7 +392,8 @@ async function storageSet(key, value){
   return {value};
 }
 
-function windowKeys(){ const ws=computeWindowStart(); return [0,1,2,3,4,5].map(i=>addMonths(ws,i)); }
+const WINDOW_SIZE = Math.max(6, Object.keys(EMBEDDED_PROJECTION_SEED).length);
+function windowKeys(){ const ws=computeWindowStart(); return Array.from({length:WINDOW_SIZE},(_,i)=>addMonths(ws,i)); }
 function mostRecentRealBefore(key){
   const keys = Object.keys(state.months).filter(k=> k<key && state.months[k].status==="real").sort(cmpKey);
   return keys.length? state.months[keys[keys.length-1]] : null;
@@ -357,19 +414,48 @@ function ensureWindow(){
   });
 }
 function allKnownKeys(){ return Array.from(new Set([...Object.keys(state.months), ...windowKeys()])).sort(cmpKey); }
-function hasAnyRealData(){ return Object.values(state.months).some(m=>m.status==="real" && Object.keys(m.categories).length>0); }
+function hasAnyRealData(){ return Object.values(state.months).some(m=>Object.keys(m.categories).length>0); }
+
+// Clasificación explícita de a qué lado pertenece cada concepto (independiente del signo
+// del valor cargado). Así una categoría en $0 no se cuela del lado equivocado. Cualquier
+// categoría nueva que no esté en esta lista se clasifica por el signo, como respaldo.
+const CATEGORY_SIDE_HINTS = {
+  "Venta de leche - Punta del Agua": "ingreso",
+  "Venta de leche - Molfino": "ingreso",
+  "Venta de leche - Chengo": "ingreso",
+  "Venta de vacas de descarte": "ingreso",
+  "Servicio de picado": "ingreso",
+  "Ajuste manual": "ingreso",
+  "Sueldos": "egreso",
+  "Honorarios": "egreso",
+  "Impuestos": "egreso",
+  "Alimentación": "egreso",
+  "Veterinaria": "egreso",
+  "Varios/Mantenimiento": "egreso",
+  "Banco/Préstamos": "egreso",
+  "Proveedores": "egreso",
+  "Sanidad": "egreso",
+  "Maquinarias": "egreso"
+};
+function categorySide(cat, totalValue){
+  if(CATEGORY_SIDE_HINTS[cat]) return CATEGORY_SIDE_HINTS[cat];
+  return totalValue>=0 ? "ingreso" : "egreso";
+}
 
 function monthTotals(m){
   let ingresos=0, egresos=0;
-  Object.values(m.categories).forEach(v=>{ const val=Number(v)||0; if(val>=0) ingresos+=val; else egresos+=val; });
+  Object.entries(m.categories).forEach(([cat,v])=>{
+    const val=Number(v)||0;
+    if(categorySide(cat,val)==="ingreso") ingresos+=val; else egresos+=val;
+  });
   return {ingresos, egresos, resultado: ingresos+egresos};
 }
 function orderedCategoryNames(keys){
   const totals = {};
   keys.forEach(k=>{ const m=state.months[k]; if(!m) return;
     Object.entries(m.categories).forEach(([cat,v])=>{ totals[cat]=(totals[cat]||0)+(Number(v)||0); }); });
-  const ing = Object.keys(totals).filter(c=>totals[c]>=0).sort((a,b)=>totals[b]-totals[a]);
-  const eg = Object.keys(totals).filter(c=>totals[c]<0).sort((a,b)=>totals[a]-totals[b]);
+  const ing = Object.keys(totals).filter(c=>categorySide(c,totals[c])==="ingreso").sort((a,b)=>totals[b]-totals[a]);
+  const eg = Object.keys(totals).filter(c=>categorySide(c,totals[c])==="egreso").sort((a,b)=>totals[a]-totals[b]);
   return {ing, eg, all:[...ing,...eg]};
 }
 function semaforoNivel(cobertura){ return cobertura>=1.10?"verde":cobertura>=0.95?"amarillo":"rojo"; }
@@ -388,6 +474,8 @@ function fullTimelineSeries(){
     series[k] = {
       ingresos:t.ingresos, egresos:t.egresos, resultado:t.resultado,
       accIngresos:accIng, accEgresos:accEg, accResultado:accRes,
+      saldoFinal: OPENING_BALANCE + accRes,
+      saldoInicial: OPENING_BALANCE + accRes - t.resultado,
       accCatTotalsSnapshot: {...accCatTotals}
     };
   });
@@ -497,6 +585,10 @@ function renderTable(keys){
   });
   html += `</tr></thead><tbody>`;
 
+  html += `<tr class="acum-row"><td>Saldo inicial</td>`;
+  keys.forEach(k=>{ html += `<td>$ ${fmt(series[k].saldoInicial)}</td>`; });
+  html += `</tr>`;
+
   function catRow(cat){
     html += `<tr class="cat-row"><td>${cat}</td>`;
     keys.forEach(k=>{
@@ -525,6 +617,10 @@ function renderTable(keys){
 
   html += `<tr class="acum-row"><td>Resultado acumulado</td>`;
   keys.forEach(k=>{ html += `<td>$ ${fmt(series[k].accResultado)}</td>`; });
+  html += `</tr>`;
+
+  html += `<tr class="acum-row"><td>Saldo final de caja</td>`;
+  keys.forEach(k=>{ html += `<td>$ ${fmt(series[k].saldoFinal)}</td>`; });
   html += `</tr>`;
 
   html += `<tr class="section-row"><td colspan="${keys.length+1}">Índices</td></tr>`;
@@ -575,7 +671,7 @@ function renderCharts(keys){
   document.getElementById("contentArea").innerHTML = `
     <div class="charts-grid">
       <div><h3 style="font-size:16px;color:var(--pine-dark);margin-bottom:8px;">Ingresos, Egresos y Resultado por mes</h3><div class="chart-wrap"><canvas id="chartA"></canvas></div></div>
-      <div><h3 style="font-size:16px;color:var(--pine-dark);margin-bottom:8px;">Resultado acumulado</h3><div class="chart-wrap"><canvas id="chartB"></canvas></div></div>
+      <div><h3 style="font-size:16px;color:var(--pine-dark);margin-bottom:8px;">Resultado acumulado y saldo de caja</h3><div class="chart-wrap"><canvas id="chartB"></canvas></div></div>
       <div><h3 style="font-size:16px;color:var(--pine-dark);margin-bottom:8px;">Composición de egresos por mes</h3><div class="chart-wrap"><canvas id="chartC"></canvas></div></div>
     </div>`;
   const labels = keys.map(k=>labelFor(k));
@@ -603,12 +699,17 @@ function renderCharts(keys){
   if(chartB) chartB.destroy();
   const ctxB = document.getElementById("chartB").getContext('2d');
   const acumData = keys.map(k=>series[k].accResultado);
+  const saldoData = keys.map(k=>series[k].saldoFinal);
   chartB = new Chart(ctxB, {
     type:'line',
-    data:{ labels, datasets:[{ label:'Resultado acumulado', data:acumData,
-      borderColor: acumData.some(v=>v<0)?'#AE4430':'#28402F',
-      backgroundColor:(acumData.some(v=>v<0)?'#AE4430':'#28402F')+'22',
-      fill:true, tension:.25, pointRadius:3, borderWidth:2.5 }] },
+    data:{ labels, datasets:[
+      { label:'Resultado acumulado', data:acumData,
+        borderColor:'#28402F', backgroundColor:'#28402F22',
+        fill:true, tension:.25, pointRadius:3, borderWidth:2.5 },
+      { label:'Saldo final de caja', data:saldoData,
+        borderColor:'#AD6B2E', backgroundColor:'transparent',
+        borderDash:[6,4], tension:.25, pointRadius:3, borderWidth:2.5 }
+    ]},
     options:{ responsive:true, maintainAspectRatio:false,
       plugins:{legend:{labels:{font:{family:'IBM Plex Sans'}}}},
       scales:{ x:{grid:{display:false}}, y:{ticks:{callback:v=>'$'+fmt(v)}} } }
